@@ -25,17 +25,60 @@ class FileHostingApp {
             filesList.style.display = 'none';
             emptyState.style.display = 'none';
 
-            // Try to fetch files.json from the repository with cache busting
-            const timestamp = new Date().getTime();
-            const response = await fetch(`${this.baseUrl}/data/files.json?t=${timestamp}`);
-            
-            if (response.ok) {
-                const data = await response.json();
-                this.filesData = Array.isArray(data) ? data : [];
-            } else {
-                // If files.json doesn't exist, initialize with empty array
-                this.filesData = [];
+            // First try to get files from files.json
+            let filesFromJson = [];
+            try {
+                const timestamp = new Date().getTime();
+                const response = await fetch(`${this.baseUrl}/data/files.json?t=${timestamp}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    filesFromJson = Array.isArray(data) ? data : [];
+                }
+            } catch (error) {
+                console.log('files.json not found, will scan uploads folder');
             }
+
+            // Also scan the uploads folder directly to catch any missing files
+            let filesFromUploads = [];
+            try {
+                const uploadsResponse = await fetch(`https://api.github.com/repos/${this.repoOwner}/${this.repoName}/contents/uploads`);
+                if (uploadsResponse.ok) {
+                    const uploadsData = await uploadsResponse.json();
+                    filesFromUploads = uploadsData
+                        .filter(item => item.type === 'file')
+                        .map(file => {
+                            // Extract title from filename (remove timestamp and extension)
+                            const fileName = file.name;
+                            const title = this.extractTitleFromFilename(fileName);
+                            const extension = fileName.split('.').pop().toLowerCase();
+                            
+                            return {
+                                title: title,
+                                file: file.path,
+                                type: extension,
+                                size: this.formatFileSize(file.size),
+                                uploadDate: new Date().toISOString()
+                            };
+                        });
+                }
+            } catch (error) {
+                console.log('Could not scan uploads folder:', error);
+            }
+
+            // Combine and deduplicate files (prioritize files.json data for titles)
+            const allFiles = new Map();
+            
+            // Add files from uploads folder first
+            filesFromUploads.forEach(file => {
+                allFiles.set(file.file, file);
+            });
+            
+            // Override with files.json data (better titles)
+            filesFromJson.forEach(file => {
+                allFiles.set(file.file, file);
+            });
+
+            this.filesData = Array.from(allFiles.values());
 
             loadingSpinner.style.display = 'none';
             
@@ -51,6 +94,29 @@ class FileHostingApp {
             emptyState.style.display = 'block';
             this.filesData = [];
         }
+    }
+
+    extractTitleFromFilename(filename) {
+        // Remove extension
+        const nameWithoutExt = filename.replace(/\.[^/.]+$/, '');
+        
+        // Remove timestamp pattern (YYYY-MM-DDTHH-MM-SS-SSSZ)
+        const withoutTimestamp = nameWithoutExt.replace(/-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z$/, '');
+        
+        // Replace dashes with spaces and capitalize
+        return withoutTimestamp
+            .replace(/-/g, ' ')
+            .replace(/\b\w/g, l => l.toUpperCase());
+    }
+
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
     renderFiles() {
