@@ -113,6 +113,25 @@ header h1 i {
     background: linear-gradient(45deg, #495057 0%, #6c757d 100%);
 }
 
+.btn-delete {
+    background: linear-gradient(45deg, #dc3545 0%, #c82333 100%);
+    color: white;
+    padding: 10px 20px;
+    font-size: 0.9rem;
+    margin-left: 10px;
+}
+
+.btn-delete:hover {
+    background: linear-gradient(45deg, #c82333 0%, #dc3545 100%);
+}
+
+.file-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
 /* Modal */
 .modal {
     display: none;

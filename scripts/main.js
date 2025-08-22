@@ -65,7 +65,7 @@ class FileHostingApp {
             const downloadUrl = this.getDownloadUrl(file.file);
             
             return `
-                <div class="file-item">
+                <div class="file-item" data-file-path="${file.file}">
                     <div class="file-header">
                         <div class="file-icon ${fileType}">
                             <i class="${fileIcon}"></i>
@@ -78,9 +78,14 @@ class FileHostingApp {
                         <span><i class="fas fa-file"></i> ${fileType.toUpperCase()}</span>
                         <span><i class="fas fa-hdd"></i> ${file.size || 'Unknown size'}</span>
                     </div>
-                    <button class="btn btn-download" onclick="app.downloadFile('${downloadUrl}', '${this.escapeHtml(file.title)}')">
-                        <i class="fas fa-download"></i> Download
-                    </button>
+                    <div class="file-actions">
+                        <button class="btn btn-download" onclick="app.downloadFile('${downloadUrl}', '${this.escapeHtml(file.title)}')">
+                            <i class="fas fa-download"></i> Download
+                        </button>
+                        <button class="btn btn-delete admin-only" onclick="adminManager.deleteFile('${file.file}', '${this.escapeHtml(file.title)}')" style="display: none;">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </div>
                 </div>
             `;
         }).join('');
@@ -191,7 +196,18 @@ class FileHostingApp {
         setTimeout(async () => {
             await this.loadFiles();
             this.renderFiles();
+            this.updateAdminView();
         }, 2000);
+    }
+
+    // Show/hide admin elements based on login status
+    updateAdminView() {
+        const adminElements = document.querySelectorAll('.admin-only');
+        const isAdminLoggedIn = window.adminManager && window.adminManager.isLoggedIn;
+        
+        adminElements.forEach(element => {
+            element.style.display = isAdminLoggedIn ? 'inline-flex' : 'none';
+        });
     }
 }
 

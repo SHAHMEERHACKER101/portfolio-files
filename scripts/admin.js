@@ -7,6 +7,9 @@ class AdminManager {
         this.repoName = 'portfolio-files';
         this.apiBase = 'https://api.github.com';
         
+        // Make adminManager globally accessible
+        window.adminManager = this;
+        
         this.initEventListeners();
     }
 
@@ -79,6 +82,11 @@ class AdminManager {
             this.showAdminPanel();
             this.updateAdminButton();
             this.showNotification('Login successful! Please enter your GitHub token to upload files.', 'success');
+            
+            // Update admin view to show delete buttons
+            if (window.app) {
+                window.app.updateAdminView();
+            }
         } else {
             this.showNotification('Invalid credentials!', 'error');
         }
@@ -121,6 +129,11 @@ class AdminManager {
         document.getElementById('uploadSection').style.display = 'block';
         
         this.showNotification('GitHub token saved! You can now upload files.', 'success');
+        
+        // Update admin view to show delete buttons
+        if (window.app) {
+            window.app.updateAdminView();
+        }
     }
 
     logout() {
@@ -135,6 +148,11 @@ class AdminManager {
         this.hideAdminPanel();
         this.updateAdminButton();
         this.showNotification('Logged out successfully!', 'success');
+        
+        // Update admin view to hide delete buttons
+        if (window.app) {
+            window.app.updateAdminView();
+        }
     }
 
     async handleFileUpload() {
@@ -160,7 +178,12 @@ class AdminManager {
             uploadBtn.disabled = true;
             uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
             uploadStatus.className = 'upload-status loading';
-            uploadStatus.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Preparing file upload...';
+            
+            if (file.size > 50 * 1024 * 1024) {
+                uploadStatus.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Preparing large file upload (this may take longer)...';
+            } else {
+                uploadStatus.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Preparing file upload...';
+            }
 
             // Convert file to base64 using proper method for large files
             const base64Content = await this.fileToBase64(file);
@@ -174,8 +197,8 @@ class AdminManager {
             const fileName = `${safeFileName}-${timestamp}.${fileExtension}`;
             const filePath = `uploads/${fileName}`;
 
-            // Upload file to GitHub
-            await this.uploadToGitHub(filePath, base64Content, `Add ${fileTitle}`);
+            // Upload file to GitHub (with large file support)
+            await this.uploadToGitHub(filePath, base64Content, `Add ${fileTitle}`, file.size);
 
             uploadStatus.innerHTML = '<i class="fas fa-list"></i> Updating file list...';
 
@@ -249,7 +272,12 @@ class AdminManager {
         });
     }
 
-    async uploadToGitHub(path, content, message) {
+    async uploadToGitHub(path, content, message, fileSize) {
+        // For files larger than 50MB, use a different approach
+        if (fileSize > 50 * 1024 * 1024) { // 50MB
+            return await this.uploadLargeFileToGitHub(path, content, message);
+        }
+        
         const url = `${this.apiBase}/repos/${this.repoOwner}/${this.repoName}/contents/${path}`;
         
         const response = await fetch(url, {
@@ -271,6 +299,127 @@ class AdminManager {
         }
 
         return response.json();
+    }
+
+    async uploadLargeFileToGitHub(path, content, message) {
+        try {
+            // For large files, we'll use the Git Trees API
+            // First, create a blob
+            const blobResponse = await fetch(`${this.apiBase}/repos/${this.repoOwner}/${this.repoName}/git/blobs`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `token ${this.githubToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    content: content,
+                    encoding: 'base64'
+                })
+            });
+
+            if (!blobResponse.ok) {
+                const errorData = await blobResponse.json();
+                throw new Error(errorData.message || 'Failed to create blob');
+            }
+
+            const blobData = await blobResponse.json();
+
+            // Get the current commit SHA
+            const refResponse = await fetch(`${this.apiBase}/repos/${this.repoOwner}/${this.repoName}/git/refs/heads/main`, {
+                headers: {
+                    'Authorization': `token ${this.githubToken}`,
+                }
+            });
+
+            if (!refResponse.ok) {
+                throw new Error('Failed to get current commit');
+            }
+
+            const refData = await refResponse.json();
+            const currentCommitSha = refData.object.sha;
+
+            // Get the current tree
+            const commitResponse = await fetch(`${this.apiBase}/repos/${this.repoOwner}/${this.repoName}/git/commits/${currentCommitSha}`, {
+                headers: {
+                    'Authorization': `token ${this.githubToken}`,
+                }
+            });
+
+            if (!commitResponse.ok) {
+                throw new Error('Failed to get current commit');
+            }
+
+            const commitData = await commitResponse.json();
+            const currentTreeSha = commitData.tree.sha;
+
+            // Create a new tree with the new file
+            const treeResponse = await fetch(`${this.apiBase}/repos/${this.repoOwner}/${this.repoName}/git/trees`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `token ${this.githubToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    base_tree: currentTreeSha,
+                    tree: [{
+                        path: path,
+                        mode: '100644',
+                        type: 'blob',
+                        sha: blobData.sha
+                    }]
+                })
+            });
+
+            if (!treeResponse.ok) {
+                const errorData = await treeResponse.json();
+                throw new Error(errorData.message || 'Failed to create tree');
+            }
+
+            const treeData = await treeResponse.json();
+
+            // Create a new commit
+            const newCommitResponse = await fetch(`${this.apiBase}/repos/${this.repoOwner}/${this.repoName}/git/commits`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `token ${this.githubToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: message,
+                    tree: treeData.sha,
+                    parents: [currentCommitSha]
+                })
+            });
+
+            if (!newCommitResponse.ok) {
+                const errorData = await newCommitResponse.json();
+                throw new Error(errorData.message || 'Failed to create commit');
+            }
+
+            const newCommitData = await newCommitResponse.json();
+
+            // Update the reference
+            const updateRefResponse = await fetch(`${this.apiBase}/repos/${this.repoOwner}/${this.repoName}/git/refs/heads/main`, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `token ${this.githubToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    sha: newCommitData.sha
+                })
+            });
+
+            if (!updateRefResponse.ok) {
+                const errorData = await updateRefResponse.json();
+                throw new Error(errorData.message || 'Failed to update reference');
+            }
+
+            return newCommitData;
+
+        } catch (error) {
+            throw new Error(`Large file upload failed: ${error.message}`);
+        }
     }
 
     async updateFilesList(newFile) {
@@ -350,12 +499,117 @@ class AdminManager {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
+    async deleteFile(filePath, fileName) {
+        if (!this.githubToken) {
+            this.showNotification('Please set your GitHub token first!', 'error');
+            return;
+        }
+
+        // Confirm deletion
+        if (!confirm(`Are you sure you want to delete "${fileName}"? This action cannot be undone.`)) {
+            return;
+        }
+
+        try {
+            this.showNotification('Deleting file...', 'loading');
+
+            // Get file SHA for deletion
+            const fileUrl = `${this.apiBase}/repos/${this.repoOwner}/${this.repoName}/contents/${filePath}`;
+            const fileResponse = await fetch(fileUrl, {
+                headers: {
+                    'Authorization': `token ${this.githubToken}`,
+                }
+            });
+
+            if (!fileResponse.ok) {
+                throw new Error('File not found or cannot be accessed');
+            }
+
+            const fileData = await fileResponse.json();
+
+            // Delete the file from GitHub
+            const deleteResponse = await fetch(fileUrl, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `token ${this.githubToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: `Delete ${fileName}`,
+                    sha: fileData.sha,
+                    branch: 'main'
+                })
+            });
+
+            if (!deleteResponse.ok) {
+                const errorData = await deleteResponse.json();
+                throw new Error(errorData.message || 'Failed to delete file from GitHub');
+            }
+
+            // Update files.json to remove the entry
+            await this.removeFromFilesList(filePath);
+
+            // Refresh the file list
+            if (window.app) {
+                await window.app.refresh();
+            }
+
+            this.showNotification(`"${fileName}" deleted successfully!`, 'success');
+
+        } catch (error) {
+            console.error('Delete error:', error);
+            this.showNotification(`Failed to delete file: ${error.message}`, 'error');
+        }
+    }
+
+    async removeFromFilesList(filePath) {
+        try {
+            // Get existing files.json
+            const filesUrl = `${this.apiBase}/repos/${this.repoOwner}/${this.repoName}/contents/data/files.json`;
+            
+            const response = await fetch(filesUrl, {
+                headers: {
+                    'Authorization': `token ${this.githubToken}`,
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Could not fetch files.json');
+            }
+
+            const fileData = await response.json();
+            const content = atob(fileData.content.replace(/\s/g, ''));
+            let existingFiles = JSON.parse(content);
+
+            // Remove the file from the list
+            existingFiles = existingFiles.filter(file => file.file !== filePath);
+
+            // Update files.json
+            await fetch(filesUrl, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `token ${this.githubToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: `Remove deleted file from files.json`,
+                    content: btoa(JSON.stringify(existingFiles, null, 2)),
+                    sha: fileData.sha,
+                    branch: 'main'
+                })
+            });
+
+        } catch (error) {
+            throw new Error(`Failed to update files list: ${error.message}`);
+        }
+    }
+
     showNotification(message, type) {
         // Create notification element
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
         notification.innerHTML = `
-            <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+            <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'loading' ? 'spinner fa-spin' : 'exclamation-circle'}"></i>
             ${message}
         `;
         
@@ -364,7 +618,7 @@ class AdminManager {
             position: fixed;
             top: 20px;
             right: 20px;
-            background: ${type === 'success' ? 'rgba(76, 175, 80, 0.9)' : 'rgba(244, 67, 54, 0.9)'};
+            background: ${type === 'success' ? 'rgba(76, 175, 80, 0.9)' : type === 'loading' ? 'rgba(255, 193, 7, 0.9)' : 'rgba(244, 67, 54, 0.9)'};
             color: white;
             padding: 15px 20px;
             border-radius: 8px;
@@ -372,7 +626,7 @@ class AdminManager {
             font-weight: 600;
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
             backdrop-filter: blur(10px);
-            border: 1px solid ${type === 'success' ? '#4caf50' : '#f44336'};
+            border: 1px solid ${type === 'success' ? '#4caf50' : type === 'loading' ? '#ffc107' : '#f44336'};
             display: flex;
             align-items: center;
             gap: 10px;
@@ -381,17 +635,19 @@ class AdminManager {
         
         document.body.appendChild(notification);
         
-        // Remove notification after 4 seconds
-        setTimeout(() => {
-            if (document.body.contains(notification)) {
-                notification.style.animation = 'slideOut 0.3s ease';
-                setTimeout(() => {
-                    if (document.body.contains(notification)) {
-                        document.body.removeChild(notification);
-                    }
-                }, 300);
-            }
-        }, 4000);
+        // Remove notification after 4 seconds (unless it's loading)
+        if (type !== 'loading') {
+            setTimeout(() => {
+                if (document.body.contains(notification)) {
+                    notification.style.animation = 'slideOut 0.3s ease';
+                    setTimeout(() => {
+                        if (document.body.contains(notification)) {
+                            document.body.removeChild(notification);
+                        }
+                    }, 300);
+                }
+            }, 4000);
+        }
     }
 }
 
