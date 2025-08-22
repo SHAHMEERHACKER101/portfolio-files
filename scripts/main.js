@@ -12,6 +12,7 @@ class FileHostingApp {
     async init() {
         await this.loadFiles();
         this.renderFiles();
+        this.updateAdminView();
     }
 
     async loadFiles() {
@@ -89,6 +90,9 @@ class FileHostingApp {
                 </div>
             `;
         }).join('');
+        
+        // Update admin view after rendering
+        this.updateAdminView();
     }
 
     getFileType(filename) {
@@ -192,18 +196,22 @@ class FileHostingApp {
 
     // Method to refresh the file list (called after upload)
     async refresh() {
-        // Wait a moment for GitHub to process the file
-        setTimeout(async () => {
-            await this.loadFiles();
-            this.renderFiles();
-            this.updateAdminView();
-        }, 2000);
+        await this.loadFiles();
+        this.renderFiles();
+        this.updateAdminView();
     }
 
     // Show/hide admin elements based on login status
     updateAdminView() {
         const adminElements = document.querySelectorAll('.admin-only');
-        const isAdminLoggedIn = window.adminManager && window.adminManager.isLoggedIn;
+        const isAdminLoggedIn = window.adminManager && window.adminManager.isLoggedIn && window.adminManager.githubToken;
+        
+        console.log('Updating admin view:', {
+            hasAdminManager: !!window.adminManager,
+            isLoggedIn: window.adminManager ? window.adminManager.isLoggedIn : false,
+            hasToken: window.adminManager ? !!window.adminManager.githubToken : false,
+            willShowButtons: isAdminLoggedIn
+        });
         
         adminElements.forEach(element => {
             element.style.display = isAdminLoggedIn ? 'inline-flex' : 'none';
@@ -218,6 +226,15 @@ const app = new FileHostingApp();
 document.getElementById('refreshBtn').addEventListener('click', () => {
     app.refresh();
     app.showNotification('Refreshing file list...', 'success');
+});
+
+// Update admin view when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    if (window.app) {
+        setTimeout(() => {
+            window.app.updateAdminView();
+        }, 500);
+    }
 });
 
 // Add CSS for notifications
