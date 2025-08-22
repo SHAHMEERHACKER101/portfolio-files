@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shahmeer Baqai - Portfolio Files</title>
+    <link rel="stylesheet" href="/styles/main.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-folder"></i> Portfolio Files</h1>
+            <button id="adminBtn" class="admin-btn">
+                <i class="fas fa-user-shield"></i> Admin
+            </button>
+        </header>
+
+        <!-- Admin Login Modal -->
+        <div id="loginModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2><i class="fas fa-lock"></i> Admin Login</h2>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="username">Username:</label>
+                        <input type="text" id="username" name="username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password:</label>
+                        <input type="password" id="password" name="password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Admin Panel -->
+        <div id="adminPanel" class="admin-panel" style="display: none;">
+            <h2><i class="fas fa-upload"></i> Upload New File</h2>
+            <form id="uploadForm">
+                <div class="form-group">
+                    <label for="fileTitle">File Title:</label>
+                    <input type="text" id="fileTitle" name="fileTitle" required placeholder="Enter descriptive title">
+                </div>
+                <div class="form-group">
+                    <label for="fileInput">Select File:</label>
+                    <input type="file" id="fileInput" name="fileInput" required 
+                           accept=".pdf,.docx,.doc,.mp4,.mov,.avi,.pptx,.xlsx,.txt">
+                    <small>Supported: PDF, DOCX, MP4, PPTX, XLSX, TXT</small>
+                </div>
+                <button type="submit" class="btn btn-upload" id="uploadBtn">
+                    <i class="fas fa-cloud-upload-alt"></i> Upload File
+                </button>
+            </form>
+            <div id="uploadStatus" class="upload-status"></div>
+            <button id="logoutBtn" class="btn btn-secondary">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </button>
+        </div>
+
+        <!-- File List -->
+        <main>
+            <div id="loadingSpinner" class="loading">
+                <i class="fas fa-spinner fa-spin"></i> Loading files...
+            </div>
+            <div id="filesList" class="files-list"></div>
+            <div id="emptyState" class="empty-state" style="display: none;">
+                <i class="fas fa-folder-open"></i>
+                <h3>No files available</h3>
+                <p>Files will appear here once uploaded by the admin.</p>
+            </div>
+        </main>
+    </div>
+
+    <script src="/scripts/main.js"></script>
+    <script src="/scripts/admin.js"></script>
+</body>
+</html>
