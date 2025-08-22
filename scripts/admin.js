@@ -3,8 +3,8 @@ class AdminManager {
     constructor() {
         this.isLoggedIn = false;
         this.githubToken = null;
-        this.repoOwner = 'shahmeerbaqai';
-        this.repoName = 'shahmeerbaqai-portfolio-files';
+        this.repoOwner = 'SHAHMEERHACKER101';
+        this.repoName = 'portfolio-files';
         this.apiBase = 'https://api.github.com';
         
         this.initEventListeners();
@@ -30,6 +30,11 @@ class AdminManager {
         document.getElementById('uploadForm').addEventListener('submit', (e) => {
             e.preventDefault();
             this.handleFileUpload();
+        });
+
+        // Save token button
+        document.getElementById('saveTokenBtn').addEventListener('click', () => {
+            this.saveGitHubToken();
         });
 
         // Logout button
@@ -68,13 +73,12 @@ class AdminManager {
         // Verify credentials
         if (username === 'shahmeer606' && password === '9MJMKHmjfP695IW') {
             this.isLoggedIn = true;
-            // Use password as GitHub token (assuming it's a valid token)
-            this.githubToken = password;
+            this.githubToken = null; // Will be set when user provides token
             
             this.hideLoginModal();
             this.showAdminPanel();
             this.updateAdminButton();
-            this.showNotification('Login successful!', 'success');
+            this.showNotification('Login successful! Please enter your GitHub token to upload files.', 'success');
         } else {
             this.showNotification('Invalid credentials!', 'error');
         }
@@ -101,9 +105,33 @@ class AdminManager {
         }
     }
 
+    saveGitHubToken() {
+        const tokenInput = document.getElementById('githubToken');
+        const token = tokenInput.value.trim();
+        
+        if (!token) {
+            this.showNotification('Please enter your GitHub token!', 'error');
+            return;
+        }
+        
+        this.githubToken = token;
+        
+        // Hide token setup and show upload form
+        document.getElementById('tokenSetup').style.display = 'none';
+        document.getElementById('uploadSection').style.display = 'block';
+        
+        this.showNotification('GitHub token saved! You can now upload files.', 'success');
+    }
+
     logout() {
         this.isLoggedIn = false;
         this.githubToken = null;
+        
+        // Reset admin panel view
+        document.getElementById('tokenSetup').style.display = 'block';
+        document.getElementById('uploadSection').style.display = 'none';
+        document.getElementById('githubToken').value = '';
+        
         this.hideAdminPanel();
         this.updateAdminButton();
         this.showNotification('Logged out successfully!', 'success');

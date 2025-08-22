@@ -1,8 +1,8 @@
 // Main application logic for file listing and downloads
 class FileHostingApp {
     constructor() {
-        this.repoOwner = 'shahmeerbaqai';
-        this.repoName = 'shahmeerbaqai-portfolio-files';
+        this.repoOwner = 'SHAHMEERHACKER101';
+        this.repoName = 'portfolio-files';
         this.baseUrl = `https://raw.githubusercontent.com/${this.repoOwner}/${this.repoName}/main`;
         this.filesData = [];
         

@@ -40,22 +40,40 @@
         <!-- Admin Panel -->
         <div id="adminPanel" class="admin-panel" style="display: none;">
             <h2><i class="fas fa-upload"></i> Upload New File</h2>
-            <form id="uploadForm">
+            
+            <!-- GitHub Token Setup -->
+            <div id="tokenSetup" class="token-setup">
                 <div class="form-group">
-                    <label for="fileTitle">File Title:</label>
-                    <input type="text" id="fileTitle" name="fileTitle" required placeholder="Enter descriptive title">
+                    <label for="githubToken">GitHub Personal Access Token:</label>
+                    <input type="password" id="githubToken" name="githubToken" required 
+                           placeholder="Enter your GitHub Personal Access Token">
+                    <small>Create token at: GitHub Settings → Developer settings → Personal access tokens</small>
                 </div>
-                <div class="form-group">
-                    <label for="fileInput">Select File:</label>
-                    <input type="file" id="fileInput" name="fileInput" required 
-                           accept=".pdf,.docx,.doc,.mp4,.mov,.avi,.pptx,.xlsx,.txt">
-                    <small>Supported: PDF, DOCX, MP4, PPTX, XLSX, TXT</small>
-                </div>
-                <button type="submit" class="btn btn-upload" id="uploadBtn">
-                    <i class="fas fa-cloud-upload-alt"></i> Upload File
+                <button type="button" class="btn btn-primary" id="saveTokenBtn">
+                    <i class="fas fa-save"></i> Save Token
                 </button>
-            </form>
-            <div id="uploadStatus" class="upload-status"></div>
+            </div>
+
+            <!-- Upload Form (hidden until token is set) -->
+            <div id="uploadSection" style="display: none;">
+                <form id="uploadForm">
+                    <div class="form-group">
+                        <label for="fileTitle">File Title:</label>
+                        <input type="text" id="fileTitle" name="fileTitle" required placeholder="Enter descriptive title">
+                    </div>
+                    <div class="form-group">
+                        <label for="fileInput">Select File:</label>
+                        <input type="file" id="fileInput" name="fileInput" required 
+                               accept=".pdf,.docx,.doc,.mp4,.mov,.avi,.pptx,.xlsx,.txt">
+                        <small>Supported: PDF, DOCX, MP4, PPTX, XLSX, TXT</small>
+                    </div>
+                    <button type="submit" class="btn btn-upload" id="uploadBtn">
+                        <i class="fas fa-cloud-upload-alt"></i> Upload File
+                    </button>
+                </form>
+                <div id="uploadStatus" class="upload-status"></div>
+            </div>
+
             <button id="logoutBtn" class="btn btn-secondary">
                 <i class="fas fa-sign-out-alt"></i> Logout
             </button>
