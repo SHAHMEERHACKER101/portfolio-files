@@ -24,8 +24,9 @@ class FileHostingApp {
             filesList.style.display = 'none';
             emptyState.style.display = 'none';
 
-            // Try to fetch files.json from the repository
-            const response = await fetch(`${this.baseUrl}/data/files.json`);
+            // Try to fetch files.json from the repository with cache busting
+            const timestamp = new Date().getTime();
+            const response = await fetch(`${this.baseUrl}/data/files.json?t=${timestamp}`);
             
             if (response.ok) {
                 const data = await response.json();
@@ -186,13 +187,22 @@ class FileHostingApp {
 
     // Method to refresh the file list (called after upload)
     async refresh() {
-        await this.loadFiles();
-        this.renderFiles();
+        // Wait a moment for GitHub to process the file
+        setTimeout(async () => {
+            await this.loadFiles();
+            this.renderFiles();
+        }, 2000);
     }
 }
 
 // Initialize the application
 const app = new FileHostingApp();
+
+// Add refresh button functionality
+document.getElementById('refreshBtn').addEventListener('click', () => {
+    app.refresh();
+    app.showNotification('Refreshing file list...', 'success');
+});
 
 // Add CSS for notifications
 const notificationStyles = document.createElement('style');
